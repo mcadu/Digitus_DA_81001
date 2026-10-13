@@ -15,7 +15,7 @@ BASE_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Pat
 SYMBOL_FONT = ("Segoe UI Emoji", 48)
 
 
-def load_symbols(path=BASE_DIR / "symbols.json"):
+def load_symbols(path=BASE_DIR / "user.json"):
     """Return (barcode -> symbol map, default symbol); empty if the file is missing or invalid."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
