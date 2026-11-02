@@ -4,9 +4,9 @@ import time
 import serial
 import serial.tools.list_ports
 
-MODE_SERIAL = "Serial (COM/VCP)"
-MODE_KEYBOARD = "HID keyboard"
-MODE_HID_RAW = "HID raw (POS)"
+MODE_SERIAL = "Seriell (COM/VCP)"
+MODE_KEYBOARD = "HID-Tastatur"
+MODE_HID_RAW = "HID roh (POS)"
 MODES = [MODE_SERIAL, MODE_KEYBOARD, MODE_HID_RAW]
 
 
@@ -41,7 +41,7 @@ class KeyboardBarcodeReader:
 
     def __init__(self, maxKeyGap=0.1, minLength=3, timeout=0.5):
         from pynput import keyboard
-        self.description = "HID keyboard"
+        self.description = "HID-Tastatur"
         self._keyboard = keyboard
         self._maxKeyGap = maxKeyGap  # slower typing is a human, not a scanner
         self._minLength = minLength

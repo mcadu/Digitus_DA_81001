@@ -12,4 +12,8 @@ Write-Host 'Building exe with PyInstaller...'
 & $python -m PyInstaller --noconfirm --clean BarcodeReader.spec
 if ($LASTEXITCODE -ne 0) { Write-Error 'PyInstaller failed.'; exit 1 }
 
+# The exe reads user.json and books.json from its own folder; keep existing (edited) copies.
+if (-not (Test-Path 'dist\user.json')) { Copy-Item user.json dist\user.json }
+if (-not (Test-Path 'dist\books.json')) { Copy-Item books.json dist\books.json }
+
 Write-Host 'Done: dist\BarcodeReader.exe'
