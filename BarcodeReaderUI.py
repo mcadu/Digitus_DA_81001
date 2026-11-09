@@ -36,7 +36,7 @@ class BarcodeReaderUI:
         ports = BarcodeReader.listPorts()
         self.hid_devices = {}
         settings_tab = [
-            [sg.Text("Modus:"), sg.Combo(MODES, default_value=MODE_SERIAL, key="-MODE-", readonly=True,
+            [sg.Text("Modus:"), sg.Combo(MODES, default_value=MODE_KEYBOARD, key="-MODE-", readonly=True,
                                          enable_events=True, size=(20, 1))],
             [sg.Text("Gerät:", key="-DEVICE_LABEL-"),
              sg.Combo(ports, default_value=ports[0] if ports else "/dev/ttyACM0", key="-PORT-", size=(40, 1)),
@@ -52,13 +52,16 @@ class BarcodeReaderUI:
         ]
 
         output_tab = [
-            [sg.Text("Letzter Barcode:")],
-            [sg.Text("", key="-LAST-", font=("Courier", 20), size=(40, 1), relief=sg.RELIEF_SUNKEN)],
             [sg.Text("", key="-SYMBOL-", font=SYMBOL_FONT, size=(4, 1), justification="center")],
             [sg.Text("Benutzer:"), sg.Text("", key="-USER-", font=("Segoe UI Emoji", 16), size=(30, 1))],
-            [sg.Table([], headings=["Buch", "Symbol", "Rückgabe"], key="-LOANS-", num_rows=6,
-                      auto_size_columns=False, col_widths=[14, 8, 12], justification="center",
-                      font=("Segoe UI Emoji", 12), expand_x=True)],
+            [sg.Table([], headings=["Buch", "Symbol", "Rückgabe"], key="-LOANS-", num_rows=8,
+                      auto_size_columns=False, col_widths=[14, 12, 12], justification="center",
+                      font=("Segoe UI Emoji", 24), row_height=42, expand_x=True, expand_y=True)],
+            [sg.Text("Letzter Barcode:")],
+            [sg.Text("", key="-LAST-", font=("Courier", 20), size=(40, 1), relief=sg.RELIEF_SUNKEN)]
+        ]
+
+        history_tab = [
             [sg.Text("Verlauf:")],
             [sg.Multiline(size=(60, 15), key="-OUTPUT-", autoscroll=True, disabled=True, expand_x=True,
                           expand_y=True, font=("Courier", 10))],
@@ -69,7 +72,8 @@ class BarcodeReaderUI:
             [sg.Text("Bibliothek", font=("Arial", 16))],
             [sg.TabGroup([[
                 sg.Tab("Einstellungen", settings_tab),
-                sg.Tab("Ausgabe", output_tab)
+                sg.Tab("Ausgabe", output_tab),
+                sg.Tab("Verlauf", history_tab)
             ]], expand_x=True, expand_y=True)],
             [sg.Button("Beenden", key="Exit")]
         ]
@@ -79,6 +83,7 @@ class BarcodeReaderUI:
         self.stop_event = threading.Event()
         self.sim_thread = None
         self.sim_stop_event = threading.Event()
+        self.update_mode(MODE_KEYBOARD)
 
     def log_output(self, message):
         self.window["-OUTPUT-"].update(f"{message}\n", append=True)
@@ -98,22 +103,33 @@ class BarcodeReaderUI:
             self.loans.setdefault(code, [])
             symbol = self.users[code]
             self.show_user()
+            self.window["-SYMBOL-"].update(symbol)
             self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  (Benutzer)")
         elif code in self.books:
             symbol = self.books[code]
             if self.current_user is None:
                 self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  zuerst einen Benutzercode scannen")
-            elif any(book == code for book, _, _ in self.loans[self.current_user]):
-                self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  bereits an diesen Benutzer ausgeliehen")
             else:
-                due = (now + timedelta(days=1)).date()
-                self.loans[self.current_user].append((code, symbol, due))
-                self.show_user()
-                self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  (Buch, Rückgabe {due:%d.%m.%Y})")
+                existing_loan = next(
+                    ((user, index)
+                     for user, loans in self.loans.items()
+                     for index, (book, _, _) in enumerate(loans)
+                     if book == code),
+                    None)
+                if existing_loan is None:
+                    due = (now + timedelta(days=1)).date()
+                    self.loans[self.current_user].append((code, symbol, due))
+                    self.show_user()
+                    self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  (Buch ausgeliehen, Rückgabe {due:%d.%m.%Y})")
+                elif existing_loan[0] == self.current_user:
+                    self.loans[self.current_user].pop(existing_loan[1])
+                    self.show_user()
+                    self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  (Buch zurückgegeben)")
+                else:
+                    self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  bereits an einen anderen Benutzer ausgeliehen")
         else:
             symbol = self.default_symbol
             self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  (unbekannt)")
-        self.window["-SYMBOL-"].update(symbol)
 
     def update_mode(self, mode):
         """Adapt the device list and enabled fields to the selected mode."""
