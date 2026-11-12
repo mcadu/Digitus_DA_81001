@@ -58,7 +58,8 @@ class BarcodeReaderUI:
                       auto_size_columns=False, col_widths=[14, 12, 12], justification="center",
                       font=("Segoe UI Emoji", 24), row_height=42, expand_x=True, expand_y=True)],
             [sg.Text("Letzter Barcode:")],
-            [sg.Text("", key="-LAST-", font=("Courier", 20), size=(40, 1), relief=sg.RELIEF_SUNKEN)]
+            [sg.Text("", key="-LAST-", font=("Segoe UI Emoji", 20), size=(40, 1),
+                     relief=sg.RELIEF_SUNKEN, expand_x=True)]
         ]
 
         history_tab = [
@@ -96,7 +97,7 @@ class BarcodeReaderUI:
 
     def handle_barcode(self, code):
         """A user code selects the user; a book code is lent to the selected user until tomorrow."""
-        self.window["-LAST-"].update(code)
+        self.window["-LAST-"].update(code, text_color=sg.theme_text_color())
         now = datetime.now()
         if code in self.users:
             self.current_user = code
@@ -126,6 +127,9 @@ class BarcodeReaderUI:
                     self.show_user()
                     self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  (Buch zurückgegeben)")
                 else:
+                    borrower_symbol = self.users[existing_loan[0]]
+                    self.window["-LAST-"].update(
+                        f"{code}  {symbol}  bereits ausgeliehen an: {borrower_symbol}", text_color="red")
                     self.log_output(f"{now:%H:%M:%S}  {symbol}  {code}  bereits an einen anderen Benutzer ausgeliehen")
         else:
             symbol = self.default_symbol
