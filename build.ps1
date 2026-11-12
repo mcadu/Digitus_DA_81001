@@ -1,8 +1,14 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
+$uv = Get-Command uv -ErrorAction SilentlyContinue
+if (-not $uv) { Write-Error 'uv is required. Install uv, then rerun this script.'; exit 1 }
+
+Write-Host 'Syncing locked dependencies...'
+& uv sync --locked
+if ($LASTEXITCODE -ne 0) { Write-Error 'Dependency sync failed, skipping exe build.'; exit 1 }
+
 $python = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
-if (-not (Test-Path $python)) { $python = 'python' }
 
 Write-Host 'Checking sources compile...'
 & $python -m py_compile BarcodeReader.py BarcodeReaderUI.py
