@@ -1,11 +1,33 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from importlib.metadata import distributions
+from pathlib import Path
+
+
+license_datas = []
+for distribution in distributions():
+    package_name = distribution.metadata.get("Name", "unknown").replace("/", "_")
+    for package_file in distribution.files or ():
+        relative_path = package_file.as_posix().lower()
+        filename = package_file.name.lower()
+        if ".dist-info/licenses/" not in relative_path and not (
+            ".dist-info/" in relative_path and filename.startswith(("license", "copying"))
+        ):
+            continue
+        source = Path(distribution.locate_file(package_file))
+        if source.is_file():
+            license_datas.append((str(source), f"licenses/{package_name}"))
+
+project_license_dir = Path(SPECPATH) / "licenses"
+for source in project_license_dir.iterdir():
+    if source.is_file():
+        license_datas.append((str(source), "licenses"))
 
 a = Analysis(
     ['BarcodeReaderUI.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=license_datas,
     hiddenimports=['pynput.keyboard._win32', 'pynput._util.win32'],
     hookspath=[],
     hooksconfig={},

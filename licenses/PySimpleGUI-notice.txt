@@ -1,0 +1,9 @@
+PySimpleGUI 4.60.5.1
+
+PySimpleGUI is available under the GNU Lesser General Public License version 3
+or later (LGPL-3.0-or-later). The complete LGPL text is included with the
+bundled dependency license files.
+
+PySimpleGUI's source notice also requires that its first 150 lines remain
+unchanged and that products using PySimpleGUI display a notice of its use in
+their README. The source distributed with the dependency retains that notice.

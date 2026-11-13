@@ -5,6 +5,7 @@ import sys
 import threading
 import traceback
 from datetime import datetime, timedelta
+from importlib.metadata import distributions
 from pathlib import Path
 
 import PySimpleGUI as sg
@@ -27,6 +28,34 @@ def load_symbols(path=BASE_DIR / "user.json"):
         return {}, ""
 
 
+def load_license_documents():
+    license_dir = Path(getattr(sys, "_MEIPASS", BASE_DIR)) / "licenses"
+    documents = {}
+    if license_dir.is_dir():
+        for path in sorted(license_dir.rglob("*")):
+            if path.is_file():
+                name = path.relative_to(license_dir).as_posix()
+                documents[name] = path.read_text(encoding="utf-8", errors="replace")
+
+    if not getattr(sys, "frozen", False):
+        for distribution in distributions():
+            package_name = distribution.metadata.get("Name", "unknown")
+            for package_file in distribution.files or ():
+                relative_path = package_file.as_posix()
+                filename = package_file.name.lower()
+                normalized_path = relative_path.lower()
+                if ".dist-info/licenses/" not in normalized_path and not (
+                    ".dist-info/" in normalized_path and filename.startswith(("license", "copying"))
+                ):
+                    continue
+                path = Path(distribution.locate_file(package_file))
+                if path.is_file():
+                    name = f"{package_name}/{package_file.name}"
+                    documents[name] = path.read_text(encoding="utf-8", errors="replace")
+
+    return documents
+
+
 class BarcodeReaderUI:
     def __init__(self):
         self.users, self.default_symbol = load_symbols(BASE_DIR / "user.json")
@@ -44,6 +73,7 @@ class BarcodeReaderUI:
              sg.Text("Baudrate:", key="-BAUD_LABEL-"), sg.Input("9600", key="-BAUD-", size=(7, 1)),
              sg.Button("Verbinden", key="-CONNECT-"), sg.Button("Trennen", key="-DISCONNECT-", disabled=True)],
             [sg.Text("Status:"), sg.Text("Getrennt", key="-STATUS-", text_color="red")],
+            [sg.Button("Lizenzen", key="-LICENSES-")],
             [sg.Frame("Simulation", [
                 [sg.Button("Abspielen", key="-SIM_PLAY-")],
                 [sg.Text("Einzeln:"), sg.Input(key="-SIM_CODE-", size=(30, 1)),
@@ -88,6 +118,30 @@ class BarcodeReaderUI:
 
     def log_output(self, message):
         self.window["-OUTPUT-"].update(f"{message}\n", append=True)
+
+    def show_licenses(self):
+        documents = load_license_documents()
+        names = sorted(documents)
+        if not names:
+            sg.popup_error("Es wurden keine Lizenztexte gefunden.")
+            return
+
+        layout = [
+            [sg.Listbox(names, default_values=[names[0]], key="-LICENSE_LIST-", size=(34, 24),
+                        enable_events=True, expand_y=True),
+             sg.Multiline(documents[names[0]], key="-LICENSE_TEXT-", size=(90, 24),
+                          disabled=True, expand_x=True, expand_y=True, font=("Courier", 9))],
+            [sg.Push(), sg.Button("Schließen", key="-LICENSE_CLOSE-")]
+        ]
+        license_window = sg.Window("Lizenzen", layout, modal=True, resizable=True, finalize=True,
+                                   size=(1100, 620))
+        while True:
+            event, values = license_window.read()
+            if event in (sg.WIN_CLOSED, "-LICENSE_CLOSE-"):
+                break
+            if event == "-LICENSE_LIST-" and values[event]:
+                license_window["-LICENSE_TEXT-"].update(documents[values[event][0]])
+        license_window.close()
 
     def show_user(self):
         user = self.current_user
@@ -238,6 +292,8 @@ class BarcodeReaderUI:
             try:
                 if event == "-CONNECT-":
                     self.connect_reader()
+                elif event == "-LICENSES-":
+                    self.show_licenses()
                 elif event == "-DISCONNECT-":
                     self.disconnect_reader()
                 elif event in ("-MODE-", "-REFRESH-"):
